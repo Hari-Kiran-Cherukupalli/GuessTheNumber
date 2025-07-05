@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Game Room</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      background-color: #0f0f1f;
+      color: #fff;
+      font-family: 'Orbitron', sans-serif;
+      margin: 0;
+      padding: 2rem;
+    }
+    .room-info, .guess-section, .log {
+      margin-bottom: 2rem;
+    }
+    .guess-section input[type="text"] {
+      padding: 0.5rem;
+      width: 100px;
+      text-align: center;
+      font-size: 1.2rem;
+    }
+    .guess-section button {
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      margin-left: 1rem;
+      background-color: #6c63ff;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+    }
+    .guess-section button:hover {
+      background-color: #4f46e5;
+    }
+    .log div {
+      margin: 0.3rem 0;
+      padding: 0.5rem;
+      background-color: #1c1c2e;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="room-info">
+    <h2>Room Code: {{ room.room_code }}</h2>
+    <p>Player 1: {{ room.player1_name }}</p>
+    <p>Player 2: {{ room.player2_name|default:"Waiting..." }}</p>
+    {% if room.player2_name %}
+      <p>Current Turn: Player {{ room.current_turn }}</p>
+    {% endif %}
+  </div>
+
+  {% if room.player2_name %}
+  <div class="guess-section">
+    <form method="POST" action="/submit-guess/">
+      {% csrf_token %}
+      <input type="hidden" name="room_code" value="{{ room.room_code }}" />
+      <input type="hidden" name="player_name" value="{{ player_name }}" />
+      <input type="text" name="guess_number" maxlength="4" pattern="\d{4}" required placeholder="1234" />
+      <button type="submit">Submit Guess</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="log">
+    <h3>Guess History</h3>
+    {% for guess in guesses %}
+      <div>
+        Player {{ guess.player_number }} guessed {{ guess.guess_number }} → 
+        {{ guess.matched_digits }} matched, {{ guess.correct_positions }} correct positions
+      </div>
+    {% empty %}
+      <p>No guesses yet.</p>
+    {% endfor %}
+  </div>
+</body>
+</html>
