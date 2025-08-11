@@ -13,6 +13,138 @@ body {
     align-items: center;
     justify-content: center;
     color: #333;
+    position: relative;
+    overflow-x: hidden; /* Only prevent horizontal scroll */
+    padding: 20px 0; /* Add padding for better mobile experience */
+}
+
+/* Animated Background */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: -2;
+}
+
+.animated-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.floating-shape {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    animation: float 20s infinite linear;
+}
+
+.floating-shape:nth-child(1) {
+    width: 80px;
+    height: 80px;
+    left: 10%;
+    animation-delay: 0s;
+}
+
+.floating-shape:nth-child(2) {
+    width: 60px;
+    height: 60px;
+    left: 20%;
+    animation-delay: -5s;
+}
+
+.floating-shape:nth-child(3) {
+    width: 100px;
+    height: 100px;
+    left: 30%;
+    animation-delay: -10s;
+}
+
+.floating-shape:nth-child(4) {
+    width: 40px;
+    height: 40px;
+    left: 40%;
+    animation-delay: -15s;
+}
+
+.floating-shape:nth-child(5) {
+    width: 120px;
+    height: 120px;
+    left: 50%;
+    animation-delay: -3s;
+}
+
+.floating-shape:nth-child(6) {
+    width: 70px;
+    height: 70px;
+    left: 60%;
+    animation-delay: -8s;
+}
+
+.floating-shape:nth-child(7) {
+    width: 90px;
+    height: 90px;
+    left: 70%;
+    animation-delay: -13s;
+}
+
+.floating-shape:nth-child(8) {
+    width: 50px;
+    height: 50px;
+    left: 80%;
+    animation-delay: -18s;
+}
+
+@keyframes float {
+    0% {
+        transform: translateY(100vh) rotate(0deg);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(-100px) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Music Control Button */
+.music-control {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.music-control:hover {
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
+}
+
+.music-control.muted {
+    background: rgba(255, 0, 0, 0.1);
+    color: #ff4444;
 }
 
 .container {
@@ -464,5 +596,5 @@ h3 {
 
 /* Animation for History Items */
 .history-item {
-    /* animation: fadeInUp 0.3s ease-out; */
+    animation: fadeInUp 0.3s ease-out;
 } 

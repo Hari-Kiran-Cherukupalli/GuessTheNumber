@@ -6,11 +6,24 @@
     <title>Guess The Number - 2 Player Game</title>
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+    <!-- No longer need Firebase SDK - using Python backend -->
 </head>
 <body>
+    <!-- Animated Background -->
+    <div class="animated-background">
+        <div class="floating-shape"></div>
+        <div class="floating-shape"></div>
+        <div class="floating-shape"></div>
+        <div class="floating-shape"></div>
+        <div class="floating-shape"></div>
+        <div class="floating-shape"></div>
+        <div class="floating-shape"></div>
+        <div class="floating-shape"></div>
+    </div>
+    
+    <!-- Music Control -->
+    <button id="music-control" class="music-control" title="Toggle Background Music">🎵</button>
+    
     <div class="container">
         <!-- Welcome Screen -->
         <div id="welcome-screen" class="screen active">
@@ -68,7 +81,7 @@
         <div id="create-room-screen" class="screen">
             <h2>Create a Room</h2>
             <div class="room-code-display">
-                <label>Your Room Code:</label>
+                <label>Your Room Code: (start game to generate code)</label>
                 <div id="room-code" class="code-display"></div>
                 <button id="copy-code-btn" class="btn btn-small">Copy Code</button>
             </div>
@@ -92,7 +105,7 @@
             <h2>Join a Room</h2>
             <div class="input-group">
                 <label for="room-code-input">Enter Room Code:</label>
-                <input type="text" id="room-code-input" maxlength="7" placeholder="e.g., abcdefg">
+                <input type="text" id="room-code-input" maxlength="4" placeholder="e.g., ABCD">
                 <div id="join-error" class="error-message"></div>
             </div>
             <div class="button-group">
@@ -143,6 +156,7 @@
         </div>
     </div>
 
-    <script src="script-firebase.js"></script>
+    <script src="background-music.js"></script>
+    <script src="script.js"></script>
 </body>
 </html> 

@@ -9,85 +9,256 @@ class GuessTheNumberGame {
         this.gameHistory = [];
         this.gameActive = false;
         this.pollingInterval = null;
-        this.playerId = this.generatePlayerId();
+        this.playerName = '';
+        this.opponentName = '';
+        this.isSinglePlayer = false;
+        this.apiUrl = 'http://localhost:5000/api';
+        this.musicEnabled = true;
+        this.backgroundMusic = null;
         
         this.initializeEventListeners();
-        this.setupStorageListener();
-        this.loadGameState();
+        this.initializeSounds();
+        this.initializeBackgroundMusic();
+    }
+
+    initializeSounds() {
+        // Create audio context for sound effects
+        this.audioContext = null;
+        this.sounds = {
+            click: this.createSound(800, 0.1, 'sine'),
+            correct: this.createSound(523, 0.3, 'sine'), // C note
+            win: this.createWinSound(),
+            lose: this.createLoseSound(),
+            error: this.createSound(200, 0.2, 'sawtooth')
+        };
+    }
+
+    createSound(frequency, duration, type = 'sine') {
+        return () => {
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            
+            gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
+            
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + duration);
+        };
+    }
+
+    createWinSound() {
+        return () => {
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            // Play a celebratory melody
+            const notes = [523, 659, 784, 1047]; // C, E, G, C
+            notes.forEach((freq, index) => {
+                setTimeout(() => {
+                    const oscillator = this.audioContext.createOscillator();
+                    const gainNode = this.audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(this.audioContext.destination);
+                    
+                    oscillator.frequency.value = freq;
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.2, this.audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.3);
+                    
+                    oscillator.start(this.audioContext.currentTime);
+                    oscillator.stop(this.audioContext.currentTime + 0.3);
+                }, index * 200);
+            });
+        };
+    }
+
+    createLoseSound() {
+        return () => {
+            if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            // Play a descending sound
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 1);
+            oscillator.type = 'sawtooth';
+            
+            gainNode.gain.setValueAtTime(0.1, this.audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 1);
+            
+            oscillator.start(this.audioContext.currentTime);
+            oscillator.stop(this.audioContext.currentTime + 1);
+        };
+    }
+
+    playSound(soundName) {
+        try {
+            if (this.sounds[soundName]) {
+                this.sounds[soundName]();
+            }
+        } catch (error) {
+            console.log('Sound playback not available:', error);
+        }
+    }
+
+    initializeBackgroundMusic() {
+        // Use the dedicated background music manager
+        this.backgroundMusic = new BackgroundMusicManager();
+    }
+
+        toggleBackgroundMusic() {
+        const musicButton = document.getElementById('music-control');
+        this.musicEnabled = this.backgroundMusic.toggle();
+        
+        if (this.musicEnabled) {
+            musicButton.textContent = '🎵';
+            musicButton.classList.remove('muted');
+            musicButton.title = 'Turn off background music';
+            
+            // Start music ONLY if on menu/setup screens (NOT during gameplay)
+            if (this.currentScreen === 'welcome-screen' || 
+                this.currentScreen === 'create-room-screen' || 
+                this.currentScreen === 'join-room-screen' ||
+                this.currentScreen === 'single-player-screen') {
+                setTimeout(() => this.backgroundMusic.start(), 200);
+            }
+        } else {
+            musicButton.textContent = '🔇';
+            musicButton.classList.add('muted');
+            musicButton.title = 'Turn on background music';
+        }
     }
 
     initializeEventListeners() {
+        // Music control
+        document.getElementById('music-control').addEventListener('click', () => {
+            this.playSound('click');
+            this.toggleBackgroundMusic();
+        });
         // Welcome screen
-        document.getElementById('create-room-btn').addEventListener('click', () => this.showCreateRoom());
-        document.getElementById('join-room-btn').addEventListener('click', () => this.showJoinRoom());
+        document.getElementById('player-name').addEventListener('input', (e) => this.validatePlayerName(e.target.value));
+        document.getElementById('single-player-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.showSinglePlayer();
+        });
+        document.getElementById('create-room-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.showCreateRoom();
+        });
+        document.getElementById('join-room-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.showJoinRoom();
+        });
+
+        // Single player screen
+        document.getElementById('back-from-single-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.showWelcome();
+        });
+        document.getElementById('start-single-player-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.startSinglePlayerGame();
+        });
 
         // Create room screen
-        document.getElementById('back-from-create-btn').addEventListener('click', () => this.showWelcome());
+        document.getElementById('back-from-create-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.showWelcome();
+        });
         document.getElementById('secret-number').addEventListener('input', (e) => this.validateSecretNumber(e.target.value));
-        document.getElementById('start-game-btn').addEventListener('click', () => this.startGame());
-        document.getElementById('copy-code-btn').addEventListener('click', () => this.copyRoomCode());
+        document.getElementById('start-game-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.startGame();
+        });
+        document.getElementById('copy-code-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.copyRoomCode();
+        });
 
         // Join room screen
-        document.getElementById('back-from-join-btn').addEventListener('click', () => this.showWelcome());
-        document.getElementById('join-game-btn').addEventListener('click', () => this.joinGame());
-        document.getElementById('room-code-input').addEventListener('input', (e) => this.validateRoomCode(e.target.value));
+        document.getElementById('back-from-join-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.showWelcome();
+        });
+        document.getElementById('join-game-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.joinGame();
+        });
+        document.getElementById('room-code-input').addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
+            this.validateRoomCode(e.target.value);
+        });
 
         // Game screen
-        document.getElementById('submit-guess-btn').addEventListener('click', () => this.submitGuess());
+        document.getElementById('submit-guess-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.submitGuess();
+        });
         document.getElementById('guess-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.submitGuess();
+            if (e.key === 'Enter') {
+                this.playSound('click');
+                this.submitGuess();
+            }
         });
         document.getElementById('guess-input').addEventListener('input', (e) => this.validateGuessInput(e.target.value));
-        document.getElementById('leave-game-btn').addEventListener('click', () => this.leaveGame());
-        document.getElementById('new-game-btn').addEventListener('click', () => this.showWelcome());
-    }
-
-    setupStorageListener() {
-        // Listen for localStorage changes across tabs
-        window.addEventListener('storage', (e) => {
-            if (e.key && e.key.startsWith('game_') && this.roomCode) {
-                if (e.key === `game_${this.roomCode}`) {
-                    this.handleStorageChange(JSON.parse(e.newValue));
-                }
-            }
+        document.getElementById('leave-game-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.leaveGame();
         });
-
-        // Also check for changes periodically (fallback)
-        setInterval(() => {
-            if (this.roomCode && this.currentScreen === 'game-screen') {
-                this.loadGameState();
-            }
-        }, 2000);
-    }
-
-    handleStorageChange(gameData) {
-        if (!gameData) return;
-        
-        // Update game state based on storage changes
-        if (this.isHost && gameData.guesserId && !this.gameActive) {
-            this.gameActive = true;
-            this.showGameScreen();
-        }
-        
-        if (gameData.guesses) {
-            this.updateGuessHistory(gameData.guesses);
-            
-            if (gameData.guesses.length > 0) {
-                const lastGuess = gameData.guesses[gameData.guesses.length - 1];
-                if (lastGuess.isWin || gameData.guesses.length >= this.maxGuesses) {
-                    this.endGame(lastGuess.isWin, gameData.guesses.length);
-                }
-            }
-        }
+        document.getElementById('new-game-btn').addEventListener('click', () => {
+            this.playSound('click');
+            this.showWelcome();
+        });
     }
 
     generateRoomCode() {
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         let code = '';
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 4; i++) {
             code += letters.charAt(Math.floor(Math.random() * letters.length));
         }
         return code;
+    }
+
+    validatePlayerName(name) {
+        const errorElement = document.getElementById('name-error');
+        const buttons = ['single-player-btn', 'create-room-btn', 'join-room-btn'];
+        
+        if (name.trim().length === 0) {
+            errorElement.textContent = 'Please enter your name';
+            buttons.forEach(id => document.getElementById(id).disabled = true);
+            return false;
+        }
+        
+        if (name.length > 10) {
+            errorElement.textContent = 'Name must be 10 characters or less';
+            buttons.forEach(id => document.getElementById(id).disabled = true);
+            return false;
+        }
+        
+        errorElement.textContent = '';
+        buttons.forEach(id => document.getElementById(id).disabled = false);
+        this.playerName = name.trim();
+        return true;
     }
 
     validateSecretNumber(number) {
@@ -121,7 +292,7 @@ class GuessTheNumberGame {
 
     validateRoomCode(code) {
         const errorElement = document.getElementById('join-error');
-        if (code.length === 7 && /^[A-Z]{7}$/.test(code.toUpperCase())) {
+        if (code.length === 4 && /^[A-Z]{4}$/.test(code.toUpperCase())) {
             errorElement.textContent = '';
             return true;
         }
@@ -130,7 +301,6 @@ class GuessTheNumberGame {
 
     validateGuessInput(guess) {
         const input = document.getElementById('guess-input');
-        // Only allow digits
         input.value = guess.replace(/\D/g, '');
     }
 
@@ -140,28 +310,69 @@ class GuessTheNumberGame {
         });
         document.getElementById(screenId).classList.add('active');
         this.currentScreen = screenId;
+        
+        // Handle background music based on screen
+        if (this.musicEnabled && this.backgroundMusic) {
+            if (screenId === 'welcome-screen' || 
+                screenId === 'create-room-screen' || 
+                screenId === 'join-room-screen' ||
+                screenId === 'single-player-screen') {
+                // Start background music for menu screens only
+                setTimeout(() => {
+                    if (this.musicEnabled) {
+                        this.backgroundMusic.start();
+                    }
+                }, 300);
+            } else if (screenId === 'game-screen') {
+                // Immediately stop background music when game starts
+                this.backgroundMusic.stop();
+            }
+        }
     }
 
     showWelcome() {
         this.showScreen('welcome-screen');
         this.clearGameData();
+        
+        // Start background music on welcome screen if enabled
+        if (this.musicEnabled && this.backgroundMusic) {
+            setTimeout(() => {
+                if (this.musicEnabled && this.currentScreen === 'welcome-screen') {
+                    this.backgroundMusic.start();
+                }
+            }, 500);
+        }
+    }
+
+    showSinglePlayer() {
+        if (!this.validatePlayerName(this.playerName)) {
+            return;
+        }
+        this.showScreen('single-player-screen');
+        this.isSinglePlayer = true;
     }
 
     showCreateRoom() {
-        this.roomCode = this.generateRoomCode();
-        document.getElementById('room-code').textContent = this.roomCode;
+        if (!this.validatePlayerName(this.playerName)) {
+            return;
+        }
         document.getElementById('secret-number').value = '';
         document.getElementById('number-error').textContent = '';
         document.getElementById('start-game-btn').disabled = true;
         this.showScreen('create-room-screen');
         this.isHost = true;
+        this.isSinglePlayer = false;
     }
 
     showJoinRoom() {
+        if (!this.validatePlayerName(this.playerName)) {
+            return;
+        }
         document.getElementById('room-code-input').value = '';
         document.getElementById('join-error').textContent = '';
         this.showScreen('join-room-screen');
         this.isHost = false;
+        this.isSinglePlayer = false;
     }
 
     copyRoomCode() {
@@ -175,77 +386,166 @@ class GuessTheNumberGame {
         });
     }
 
-    startGame() {
-        const secretNumber = document.getElementById('secret-number').value;
-        if (!this.validateSecretNumber(secretNumber)) return;
+    async startSinglePlayerGame() {
+        try {
+            const response = await fetch(`${this.apiUrl}/create-single-player`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    playerName: this.playerName
+                })
+            });
 
-        this.secretNumber = secretNumber;
-        const gameData = {
-            roomCode: this.roomCode,
-            secretNumber: secretNumber,
-            hostId: this.playerId,
-            guesserId: null,
-            gameActive: false,
-            guesses: [],
-            timestamp: Date.now()
-        };
+            const data = await response.json();
+            
+            if (!data.success) {
+                this.playSound('error');
+                alert(data.error || 'Error starting single player game');
+                return;
+            }
 
-        // Store game data
-        localStorage.setItem(`game_${this.roomCode}`, JSON.stringify(gameData));
-        
-        document.getElementById('waiting-message').style.display = 'block';
-        this.startPollingForPlayer();
-        
-        console.log('Game created with room code:', this.roomCode);
+            // Store the game ID instead of secret number
+            this.roomCode = data.gameId;
+            this.gameActive = true;
+            this.isHost = false;
+            this.isSinglePlayer = true;
+            this.opponentName = 'Computer';
+            this.gameHistory = [];
+            this.guessCount = 0;
+            
+            // Stop background music before starting game
+            if (this.backgroundMusic) {
+                this.backgroundMusic.stop();
+            }
+            
+            console.log('Single player game started. Game ID:', this.roomCode);
+            this.showGameScreen();
+        } catch (error) {
+            this.playSound('error');
+            console.error('Error starting single player game:', error);
+            alert('Error connecting to server. Please try again.');
+        }
     }
 
-    joinGame() {
+    async startGame() {
+        const secretNumber = document.getElementById('secret-number').value;
+        
+        if (!this.validateSecretNumber(secretNumber)) {
+            this.playSound('error');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${this.apiUrl}/create-game`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    playerName: this.playerName,
+                    secretNumber: secretNumber
+                })
+            });
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                this.playSound('error');
+                document.getElementById('number-error').textContent = data.error || 'Error creating game';
+                return;
+            }
+
+            this.roomCode = data.roomCode;
+            document.getElementById('room-code').textContent = this.roomCode;
+            this.gameHistory = [];
+            this.guessCount = 0;
+            
+            document.getElementById('waiting-message').style.display = 'block';
+            this.startPollingForPlayer();
+            console.log('Game created with room code:', this.roomCode);
+        } catch (error) {
+            this.playSound('error');
+            console.error('Error creating game:', error);
+            document.getElementById('number-error').textContent = 'Error connecting to server. Please try again.';
+        }
+    }
+
+    async joinGame() {
         const roomCode = document.getElementById('room-code-input').value.toUpperCase();
+        
         if (!this.validateRoomCode(roomCode)) {
-            document.getElementById('join-error').textContent = 'Invalid room code format';
+            this.playSound('error');
+            document.getElementById('join-error').textContent = 'Invalid room code format (must be 4 letters)';
             return;
         }
 
-        // Check if game exists in localStorage
-        let gameData = localStorage.getItem(`game_${roomCode}`);
-        if (!gameData) {
-            document.getElementById('join-error').textContent = 'Room not found. Make sure the room creator is in another tab of this browser.';
-            return;
+        try {
+            const response = await fetch(`${this.apiUrl}/join-game`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    roomCode: roomCode,
+                    playerName: this.playerName
+                })
+            });
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                this.playSound('error');
+                document.getElementById('join-error').textContent = data.error || 'Error joining game';
+                return;
+            }
+
+            this.roomCode = roomCode;
+            this.opponentName = data.hostName || 'Host';
+            this.gameActive = true;
+            this.gameHistory = [];
+            this.guessCount = 0;
+            
+            // Update guess history if there are existing guesses
+            if (data.guesses && data.guesses.length > 0) {
+                this.updateGuessHistory(data.guesses);
+                this.guessCount = data.guesses.length;
+            }
+            
+            this.showGameScreen();
+        } catch (error) {
+            this.playSound('error');
+            console.error('Error joining game:', error);
+            document.getElementById('join-error').textContent = 'Error connecting to server. Please try again.';
         }
-
-        const game = JSON.parse(gameData);
-        if (game.guesserId && game.guesserId !== this.playerId) {
-            document.getElementById('join-error').textContent = 'Room is full';
-            return;
-        }
-
-        // Join the game
-        game.guesserId = this.playerId;
-        game.gameActive = true;
-        
-        // Store updated game data
-        localStorage.setItem(`game_${roomCode}`, JSON.stringify(game));
-
-        this.roomCode = roomCode;
-        this.secretNumber = game.secretNumber;
-        this.gameActive = true;
-        this.isHost = false;
-        this.showGameScreen();
-        
-        console.log('Successfully joined room:', roomCode);
     }
 
     showGameScreen() {
+        // Immediately stop background music when entering game
+        if (this.backgroundMusic) {
+            this.backgroundMusic.stop();
+        }
+        
         document.getElementById('current-room-code').textContent = this.roomCode;
         document.getElementById('tries-count').textContent = this.maxGuesses;
-        document.getElementById('player-role').textContent = this.isHost ? 
-            'You are the host. Waiting for guesses...' : 
-            'You are the guesser. Start guessing!';
+        
+        if (this.isSinglePlayer) {
+            document.getElementById('player-role').textContent = `${this.playerName}, you're playing against the Computer. Start guessing!`;
+        } else if (this.isHost) {
+            document.getElementById('player-role').textContent = `${this.playerName}, you are the host. Waiting for guesses...`;
+        } else {
+            document.getElementById('player-role').textContent = `${this.playerName}, you are the guesser. Start guessing!`;
+        }
+        
+        // Clear guess history when starting a new game
+        this.updateGuessHistory([]);
+        this.guessCount = 0;
         
         this.updateGameInterface();
         this.showScreen('game-screen');
         
-        if (!this.isHost) {
+        if (!this.isSinglePlayer) {
             this.startPollingForUpdates();
         }
     }
@@ -263,17 +563,25 @@ class GuessTheNumberGame {
     }
 
     startPollingForPlayer() {
-        this.pollingInterval = setInterval(() => {
-            const gameData = localStorage.getItem(`game_${this.roomCode}`);
-            if (gameData) {
-                const game = JSON.parse(gameData);
-                if (game.guesserId && game.gameActive) {
+        this.pollingInterval = setInterval(async () => {
+            try {
+                const response = await fetch(`${this.apiUrl}/game-status/${this.roomCode}`);
+                const data = await response.json();
+
+                if (data.success && data.gameActive && data.guesserName) {
                     this.gameActive = true;
+                    this.opponentName = data.guesserName;
                     clearInterval(this.pollingInterval);
-                    document.getElementById('waiting-message').style.display = 'none';
+                    
+                    // Stop background music when opponent joins and game starts
+                    if (this.backgroundMusic) {
+                        this.backgroundMusic.stop();
+                    }
+                    
                     this.showGameScreen();
-                    console.log('Player 2 joined! Starting game...');
                 }
+            } catch (error) {
+                console.error('Error polling for player:', error);
             }
         }, 1000);
     }
@@ -284,35 +592,50 @@ class GuessTheNumberGame {
         }, 1000);
     }
 
-    loadGameState() {
-        if (!this.roomCode) return;
+    async loadGameState() {
+        if (!this.roomCode || this.roomCode.startsWith('SINGLE_')) return;
         
-        const gameData = localStorage.getItem(`game_${this.roomCode}`);
-        if (gameData) {
-            const game = JSON.parse(gameData);
-            this.updateGuessHistory(game.guesses || []);
-            
-            // Update tries counter
-            if (game.guesses) {
-                this.guessCount = game.guesses.length;
-                const triesLeft = this.maxGuesses - this.guessCount;
+        try {
+            const response = await fetch(`${this.apiUrl}/game-status/${this.roomCode}`);
+            const data = await response.json();
+
+            if (data.success) {
+                const previousGuessCount = this.guessCount;
+                this.updateGuessHistory(data.guesses || []);
+                
+                const currentGuessCount = data.totalGuesses || 0;
+                this.guessCount = currentGuessCount;
+                const triesLeft = this.maxGuesses - currentGuessCount;
                 document.getElementById('tries-count').textContent = triesLeft;
-            }
-            
-            if (game.guesses && game.guesses.length > 0) {
-                const lastGuess = game.guesses[game.guesses.length - 1];
-                if (lastGuess.isWin || game.guesses.length >= this.maxGuesses) {
-                    this.endGame(lastGuess.isWin, game.guesses.length);
+                
+                // Play sound for both players when a new guess is made
+                if (currentGuessCount > previousGuessCount && data.guesses && data.guesses.length > 0) {
+                    const lastGuess = data.guesses[data.guesses.length - 1];
+                    if (lastGuess.isWin) {
+                        this.playSound('win');
+                    } else {
+                        this.playSound('correct');
+                    }
+                }
+                
+                if (data.guesses && data.guesses.length > 0) {
+                    const lastGuess = data.guesses[data.guesses.length - 1];
+                    if (lastGuess.isWin || data.guesses.length >= this.maxGuesses) {
+                        this.endGame(lastGuess.isWin, data.guesses.length);
+                    }
                 }
             }
+        } catch (error) {
+            console.error('Error loading game state:', error);
         }
     }
 
-    submitGuess() {
+    async submitGuess() {
         const guessInput = document.getElementById('guess-input');
         const guess = guessInput.value;
 
         if (guess.length !== 4 || !/^\d{4}$/.test(guess)) {
+            this.playSound('error');
             alert('Please enter a 4-digit number');
             return;
         }
@@ -320,39 +643,126 @@ class GuessTheNumberGame {
         const digits = guess.split('');
         const uniqueDigits = new Set(digits);
         if (uniqueDigits.size !== 4) {
+            this.playSound('error');
             alert('All digits must be different');
             return;
         }
 
-        const result = this.checkGuess(guess);
-        this.addGuessToHistory(guess, result);
+        if (this.isSinglePlayer) {
+            await this.handleSinglePlayerGuess(guess);
+        } else {
+            await this.handleMultiplayerGuess(guess);
+        }
         
         guessInput.value = '';
-        this.guessCount++;
-        
-        const triesLeft = this.maxGuesses - this.guessCount;
-        document.getElementById('tries-count').textContent = triesLeft;
+    }
 
-        if (result.isWin || this.guessCount >= this.maxGuesses) {
-            this.endGame(result.isWin, this.guessCount);
+    async handleSinglePlayerGuess(guess) {
+        try {
+            const response = await fetch(`${this.apiUrl}/submit-guess`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    roomCode: this.roomCode,
+                    guess: guess
+                })
+            });
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                this.playSound('error');
+                alert(data.error || 'Error submitting guess');
+                return;
+            }
+
+            this.addSinglePlayerGuessToHistory(guess, data.result);
+            this.guessCount = data.totalGuesses;
+            const triesLeft = this.maxGuesses - this.guessCount;
+            document.getElementById('tries-count').textContent = triesLeft;
+
+            if (data.result.isWin) {
+                this.playSound('win');
+            } else {
+                this.playSound('correct');
+            }
+
+            if (data.result.isWin || this.guessCount >= this.maxGuesses) {
+                if (data.secretNumber) {
+                    this.secretNumber = data.secretNumber;
+                }
+                setTimeout(() => {
+                    this.endGame(data.result.isWin, this.guessCount);
+                }, 500);
+            }
+        } catch (error) {
+            this.playSound('error');
+            console.error('Error submitting single player guess:', error);
+            alert('Error connecting to server. Please try again.');
         }
     }
 
-    checkGuess(guess) {
-        const secretDigits = this.secretNumber.split('');
+    async handleMultiplayerGuess(guess) {
+        try {
+            const response = await fetch(`${this.apiUrl}/submit-guess`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    roomCode: this.roomCode,
+                    guess: guess
+                })
+            });
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                this.playSound('error');
+                alert(data.error || 'Error submitting guess');
+                return;
+            }
+
+            this.guessCount = data.totalGuesses;
+            const triesLeft = this.maxGuesses - this.guessCount;
+            document.getElementById('tries-count').textContent = triesLeft;
+
+            if (data.result.isWin) {
+                this.playSound('win');
+            } else {
+                this.playSound('correct');
+            }
+
+            if (data.result.isWin || this.guessCount >= this.maxGuesses) {
+                if (data.secretNumber) {
+                    this.secretNumber = data.secretNumber;
+                }
+                setTimeout(() => {
+                    this.endGame(data.result.isWin, this.guessCount);
+                }, 500);
+            }
+        } catch (error) {
+            this.playSound('error');
+            console.error('Error submitting guess:', error);
+            alert('Error connecting to server. Please try again.');
+        }
+    }
+
+    checkGuess(guess, secretNumber) {
+        const secretDigits = secretNumber.split('');
         const guessDigits = guess.split('');
         
         let correctNumbers = 0;
         let correctPositions = 0;
 
-        // Check for correct positions
         for (let i = 0; i < 4; i++) {
             if (guessDigits[i] === secretDigits[i]) {
                 correctPositions++;
             }
         }
 
-        // Check for correct numbers (regardless of position)
         for (let i = 0; i < 4; i++) {
             if (secretDigits.includes(guessDigits[i])) {
                 correctNumbers++;
@@ -368,58 +778,97 @@ class GuessTheNumberGame {
         };
     }
 
-    addGuessToHistory(guess, result) {
-        const gameData = localStorage.getItem(`game_${this.roomCode}`);
-        const game = gameData ? JSON.parse(gameData) : { guesses: [] };
+    addSinglePlayerGuessToHistory(guess, result) {
+        if (!this.gameHistory) this.gameHistory = [];
         
-        if (!game.guesses) game.guesses = [];
-        
-        game.guesses.push({
+        const newGuess = {
             guess,
             correctNumbers: result.correctNumbers,
             correctPositions: result.correctPositions,
             isWin: result.isWin,
             timestamp: Date.now()
-        });
-
-        localStorage.setItem(`game_${this.roomCode}`, JSON.stringify(game));
-        this.updateGuessHistory(game.guesses);
+        };
         
-        console.log('Added guess to history:', guess, result);
+        this.gameHistory.push(newGuess);
+        this.updateGuessHistory(this.gameHistory);
     }
 
     updateGuessHistory(guesses) {
-        const historyList = document.getElementById('history-list');
-        historyList.innerHTML = '';
+        const guessTable = document.getElementById('guess-table');
+        guessTable.innerHTML = '';
 
-        guesses.forEach((entry, index) => {
-            const historyItem = document.createElement('div');
-            historyItem.className = 'history-item';
-            historyItem.innerHTML = `
-                <span class="guess-number">Guess ${index + 1}: ${entry.guess}</span>
-                <span class="result">
-                    ${entry.correctNumbers} correct numbers, 
-                    ${entry.correctPositions} correct positions
-                    ${entry.isWin ? ' 🎉 WINNER!' : ''}
-                </span>
-            `;
-            historyList.appendChild(historyItem);
-        });
+        // Create 15 cells for the 5x3 grid
+        for (let i = 0; i < 15; i++) {
+            const guessItem = document.createElement('div');
+            guessItem.className = 'guess-item';
+            
+            if (i < guesses.length) {
+                const entry = guesses[i];
+                
+                // Determine color based on correct numbers and positions
+                let colorClass = 'red'; // default for < 4 correct numbers
+                if (entry.isWin) {
+                    colorClass = 'green';
+                } else if (entry.correctNumbers === 4 && entry.correctPositions < 4) {
+                    colorClass = 'yellow';
+                }
+                
+                guessItem.classList.add(colorClass);
+                guessItem.innerHTML = `
+                    <div class="guess-number">${entry.guess}</div>
+                    <div class="guess-result">
+                        ${entry.correctNumbers}N ${entry.correctPositions}P
+                        ${entry.isWin ? '<br/>🎉 WIN!' : ''}
+                    </div>
+                `;
+            } else {
+                // Empty slot
+                guessItem.innerHTML = `
+                    <div class="guess-number">----</div>
+                    <div class="guess-result">-- --</div>
+                `;
+            }
+            
+            guessTable.appendChild(guessItem);
+        }
     }
 
     endGame(isWin, totalGuesses) {
         this.gameActive = false;
         clearInterval(this.pollingInterval);
         
+        // Ensure background music stays stopped during game end
+        if (this.backgroundMusic) {
+            this.backgroundMusic.stop();
+        }
+        
         const resultTitle = document.getElementById('result-title');
         const resultMessage = document.getElementById('result-message');
         
         if (isWin) {
-            resultTitle.textContent = '🎉 Congratulations!';
-            resultMessage.textContent = `You guessed the number ${this.secretNumber} in ${totalGuesses} tries!`;
+            this.playSound('win');
+            if (this.isSinglePlayer) {
+                resultTitle.textContent = '🎉 You Won!';
+                resultMessage.textContent = `Congratulations ${this.playerName}! You guessed the computer's number ${this.secretNumber} in ${totalGuesses} tries!`;
+            } else if (this.isHost) {
+                resultTitle.textContent = `😔 ${this.opponentName} Won!`;
+                resultMessage.textContent = `${this.opponentName} successfully guessed your secret number ${this.secretNumber} in ${totalGuesses} tries!`;
+            } else {
+                resultTitle.textContent = '🎉 You Won!';
+                resultMessage.textContent = `Congratulations ${this.playerName}! You guessed ${this.opponentName}'s number ${this.secretNumber} in ${totalGuesses} tries!`;
+            }
         } else {
-            resultTitle.textContent = '💔 Game Over';
-            resultMessage.textContent = `You've used all ${this.maxGuesses} tries. The number was ${this.secretNumber}.`;
+            this.playSound('lose');
+            if (this.isSinglePlayer) {
+                resultTitle.textContent = '💔 Game Over';
+                resultMessage.textContent = `Sorry ${this.playerName}, you failed to guess the computer's number in ${this.maxGuesses} tries. The secret number was ${this.secretNumber}.`;
+            } else if (this.isHost) {
+                resultTitle.textContent = `🎉 ${this.playerName} Won!`;
+                resultMessage.textContent = `${this.opponentName} failed to guess your secret number ${this.secretNumber} in ${this.maxGuesses} tries. You win!`;
+            } else {
+                resultTitle.textContent = '💔 Game Over';
+                resultMessage.textContent = `Sorry ${this.playerName}, you failed to guess ${this.opponentName}'s number in ${this.maxGuesses} tries. The secret number was ${this.secretNumber}.`;
+            }
         }
         
         document.getElementById('game-result').style.display = 'block';
@@ -427,16 +876,28 @@ class GuessTheNumberGame {
         document.getElementById('submit-guess-btn').disabled = true;
     }
 
-    leaveGame() {
+    async leaveGame() {
+        if (this.roomCode && this.roomCode !== 'SINGLE') {
+            try {
+                await fetch(`${this.apiUrl}/leave-game`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        roomCode: this.roomCode
+                    })
+                });
+            } catch (error) {
+                console.error('Error leaving game:', error);
+            }
+        }
+        
         this.clearGameData();
         this.showWelcome();
     }
 
     clearGameData() {
-        if (this.roomCode) {
-            localStorage.removeItem(`game_${this.roomCode}`);
-        }
-        
         clearInterval(this.pollingInterval);
         this.roomCode = null;
         this.isHost = false;
@@ -444,15 +905,16 @@ class GuessTheNumberGame {
         this.guessCount = 0;
         this.gameHistory = [];
         this.gameActive = false;
+        this.isSinglePlayer = false;
+        this.opponentName = '';
+        
+        // Stop background music when clearing game data
+        if (this.backgroundMusic) {
+            this.backgroundMusic.stop();
+        }
         
         document.getElementById('game-result').style.display = 'none';
         document.getElementById('waiting-message').style.display = 'none';
-        
-        console.log('Game data cleared');
-    }
-
-    generatePlayerId() {
-        return Math.random().toString(36).substr(2, 9);
     }
 }
 
