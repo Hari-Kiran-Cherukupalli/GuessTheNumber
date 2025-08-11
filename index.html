@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guess The Number - 2 Player Game</title>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Welcome Screen -->
+        <div id="welcome-screen" class="screen active">
+            <h1>🎯 Guess The Number</h1>
+            <p class="subtitle">Challenge your friend or play solo in this exciting number guessing game!</p>
+            
+            <!-- Player Name Input -->
+            <div class="input-group">
+                <label for="player-name">Enter your name (max 10 characters):</label>
+                <input type="text" id="player-name" maxlength="10" placeholder="Your name">
+                <div id="name-error" class="error-message"></div>
+            </div>
+            
+            <!-- Game Rules -->
+            <div class="game-rules">
+                <h3>How to Play:</h3>
+                <div class="rules-content">
+                    <p><strong>🎮 Setup:</strong> One player creates a room and sets a secret 4-digit number (all digits must be different). The other player joins the room to guess.</p>
+                    
+                    <p><strong>🎯 Goal:</strong> The guesser has 15 tries to guess the secret number correctly.</p>
+                    
+                    <p><strong>📊 Feedback:</strong> After each guess, you'll see:</p>
+                    <ul>
+                        <li><strong>Numbers (N):</strong> How many digits are correct</li>
+                        <li><strong>Positions (P):</strong> How many are in the right position</li>
+                    </ul>
+                    
+                    <p><strong>🎨 Color Guide:</strong></p>
+                    <ul>
+                        <li><span class="color-demo red">🔴 Red:</span> Less than 4 correct numbers</li>
+                        <li><span class="color-demo yellow">🟡 Yellow:</span> 4 correct numbers, wrong positions</li>
+                        <li><span class="color-demo green">🟢 Green:</span> Perfect match - You win!</li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="single-player-btn" class="btn btn-primary" disabled>Single Player</button>
+                <button id="create-room-btn" class="btn btn-primary" disabled>Create Room</button>
+                <button id="join-room-btn" class="btn btn-secondary" disabled>Join Room</button>
+            </div>
+        </div>
+
+        <!-- Single Player Screen -->
+        <div id="single-player-screen" class="screen">
+            <h2>Single Player Mode</h2>
+            <p>The computer has generated a secret 4-digit number. Can you guess it in 15 tries?</p>
+            <div class="button-group">
+                <button id="start-single-player-btn" class="btn btn-primary">Start Game</button>
+                <button id="back-from-single-btn" class="btn btn-secondary">Back</button>
+            </div>
+        </div>
+
+        <!-- Create Room Screen -->
+        <div id="create-room-screen" class="screen">
+            <h2>Create a Room</h2>
+            <div class="room-code-display">
+                <label>Your Room Code:</label>
+                <div id="room-code" class="code-display"></div>
+                <button id="copy-code-btn" class="btn btn-small">Copy Code</button>
+            </div>
+            <div class="input-group">
+                <label for="secret-number">Enter your 4-digit secret number (no repeating digits):</label>
+                <input type="text" id="secret-number" maxlength="4" placeholder="e.g., 1729">
+                <div id="number-error" class="error-message"></div>
+            </div>
+            <div class="button-group">
+                <button id="start-game-btn" class="btn btn-primary" disabled>Start Game</button>
+                <button id="back-from-create-btn" class="btn btn-secondary">Back</button>
+            </div>
+            <div id="waiting-message" class="waiting-message" style="display: none;">
+                <p>Waiting for another player to join...</p>
+                <div class="spinner"></div>
+            </div>
+        </div>
+
+        <!-- Join Room Screen -->
+        <div id="join-room-screen" class="screen">
+            <h2>Join a Room</h2>
+            <div class="input-group">
+                <label for="room-code-input">Enter Room Code:</label>
+                <input type="text" id="room-code-input" maxlength="7" placeholder="e.g., abcdefg">
+                <div id="join-error" class="error-message"></div>
+            </div>
+            <div class="button-group">
+                <button id="join-game-btn" class="btn btn-primary">Join Game</button>
+                <button id="back-from-join-btn" class="btn btn-secondary">Back</button>
+            </div>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen">
+            <div class="game-header">
+                <h2 id="game-title">Guess The Number</h2>
+                <div class="game-info">
+                    <span id="room-info">Room: <span id="current-room-code"></span></span>
+                    <span id="tries-left">Tries left: <span id="tries-count">15</span></span>
+                </div>
+            </div>
+
+            <div id="player-role" class="role-display"></div>
+
+            <!-- Input Section (Top Center) -->
+            <div class="input-section">
+                <div class="input-group">
+                    <label for="guess-input">Enter your guess (4 digits):</label>
+                    <div class="input-row">
+                        <input type="text" id="guess-input" maxlength="4" placeholder="e.g., 1234">
+                        <button id="submit-guess-btn" class="btn btn-primary">Submit</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Guess History Table (5x3 Grid) -->
+            <div class="guess-history">
+                <h3>Guess History</h3>
+                <div id="guess-table" class="guess-table">
+                    <!-- Table will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <!-- Game Result -->
+            <div id="game-result" class="game-result" style="display: none;">
+                <h3 id="result-title"></h3>
+                <p id="result-message"></p>
+                <button id="new-game-btn" class="btn btn-primary">New Game</button>
+            </div>
+
+            <button id="leave-game-btn" class="btn btn-secondary">Leave Game</button>
+        </div>
+    </div>
+
+    <script src="script-firebase.js"></script>
+</body>
+</html> 
