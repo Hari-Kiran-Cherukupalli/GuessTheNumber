@@ -247,6 +247,8 @@ class GuessTheNumberGameFirebase {
         this.isSinglePlayer = true;
         this.roomCode = 'SINGLE';
         this.opponentName = 'Computer';
+        this.gameHistory = []; // Clear game history for new single player game
+        this.guessCount = 0;
         console.log('Single player game started. Secret number:', this.secretNumber);
         this.showGameScreen();
     }
@@ -276,6 +278,10 @@ class GuessTheNumberGameFirebase {
         try {
             console.log('Saving game data to Firebase for room:', this.roomCode);
             console.log('Game data:', gameData);
+            
+            // Clear game history for new multiplayer game
+            this.gameHistory = [];
+            this.guessCount = 0;
             
             if (this.database) {
                 // Use Firebase
@@ -355,6 +361,8 @@ class GuessTheNumberGameFirebase {
             this.secretNumber = gameData.secretNumber;
             this.opponentName = gameData.hostName || 'Host';
             this.gameActive = true;
+            this.gameHistory = []; // Clear game history when joining a new game
+            this.guessCount = 0;
             this.showGameScreen();
         } catch (error) {
             console.error('Error joining game:', error);
@@ -373,6 +381,10 @@ class GuessTheNumberGameFirebase {
         } else {
             document.getElementById('player-role').textContent = `${this.playerName}, you are the guesser. Start guessing!`;
         }
+        
+        // Clear guess history when starting a new game
+        this.updateGuessHistory([]);
+        this.guessCount = 0;
         
         this.updateGameInterface();
         this.showScreen('game-screen');
