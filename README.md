@@ -13,30 +13,44 @@ A fun number guessing game with both single player and multiplayer modes, featur
 
 ## 🚀 Setup Instructions
 
-### 1. Install Python Dependencies
+### Local Development
 
-```bash
-pip install -r requirements.txt
-```
+1. **Install Python Dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### 2. Start the Backend Server
+2. **Start the Backend Server:**
+   ```bash
+   python app.py
+   ```
+   Server starts on `http://localhost:5000`
 
-```bash
-python app.py
-```
+3. **Start the Frontend:**
+   ```bash
+   python -m http.server 8080
+   ```
+   Game available at `http://localhost:8080`
 
-The server will start on `http://localhost:5000`
+### 🌐 Deploy to GitHub
 
-### 3. Start the Frontend
+1. **Create GitHub Repository:**
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit: Guess The Number Game"
+   git branch -M main
+   git remote add origin https://github.com/YOUR_USERNAME/guess-the-number.git
+   git push -u origin main
+   ```
 
-Open `index.html` in your web browser or serve it with a simple HTTP server:
+2. **Choose Deployment Option:**
+   - **Railway** (Recommended): Connect repo at [railway.app](https://railway.app)
+   - **Heroku**: `heroku create your-app-name && git push heroku main`
+   - **Render**: Connect repo at [render.com](https://render.com)
+   - **GitHub Pages + Separate Backend**: See [DEPLOYMENT.md](DEPLOYMENT.md)
 
-```bash
-# Using Python's built-in server
-python -m http.server 8080
-
-# Then open http://localhost:8080 in your browser
-```
+For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ## 🎮 How to Play
 

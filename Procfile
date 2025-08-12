@@ -1,1 +1,1 @@
-web: gunicorn GuessTheNumber.wsgi
+web: python app.py 

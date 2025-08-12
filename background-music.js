@@ -25,17 +25,63 @@ class BackgroundMusicManager {
         this.isPlaying = true;
         this.gainNode = this.audioContext.createGain();
         this.gainNode.connect(this.audioContext.destination);
-        this.gainNode.gain.setValueAtTime(0.05, this.audioContext.currentTime);
+        this.gainNode.gain.setValueAtTime(0.15, this.audioContext.currentTime);
 
-        // Create a pleasant ambient melody
+        // Create the complete "Twinkle Twinkle Little Star" melody
         const melody = [
-            { freq: 261.63, duration: 1.5 }, // C4
-            { freq: 329.63, duration: 1.5 }, // E4
-            { freq: 392.00, duration: 1.5 }, // G4
-            { freq: 523.25, duration: 2.0 }, // C5
-            { freq: 392.00, duration: 1.5 }, // G4
-            { freq: 329.63, duration: 1.5 }, // E4
-            { freq: 261.63, duration: 2.0 }, // C4
+            // First verse: "Twinkle twinkle little star"
+            { freq: 261.63, duration: 0.5 }, // C - Twin-
+            { freq: 261.63, duration: 0.5 }, // C - kle
+            { freq: 392.00, duration: 0.5 }, // G - twin-
+            { freq: 392.00, duration: 0.5 }, // G - kle
+            { freq: 440.00, duration: 0.5 }, // A - lit-
+            { freq: 440.00, duration: 0.5 }, // A - tle
+            { freq: 392.00, duration: 1.0 }, // G - star
+            
+            // Second line: "How I wonder what you are"
+            { freq: 349.23, duration: 0.5 }, // F - How
+            { freq: 349.23, duration: 0.5 }, // F - I
+            { freq: 329.63, duration: 0.5 }, // E - won-
+            { freq: 329.63, duration: 0.5 }, // E - der
+            { freq: 293.66, duration: 0.5 }, // D - what
+            { freq: 293.66, duration: 0.5 }, // D - you
+            { freq: 261.63, duration: 1.0 }, // C - are
+            
+            // Third line: "Up above the world so high"
+            { freq: 392.00, duration: 0.5 }, // G - Up
+            { freq: 392.00, duration: 0.5 }, // G - a-
+            { freq: 349.23, duration: 0.5 }, // F - bove
+            { freq: 349.23, duration: 0.5 }, // F - the
+            { freq: 329.63, duration: 0.5 }, // E - world
+            { freq: 329.63, duration: 0.5 }, // E - so
+            { freq: 293.66, duration: 1.0 }, // D - high
+            
+            // Fourth line: "Like a diamond in the sky"
+            { freq: 392.00, duration: 0.5 }, // G - Like
+            { freq: 392.00, duration: 0.5 }, // G - a
+            { freq: 349.23, duration: 0.5 }, // F - dia-
+            { freq: 349.23, duration: 0.5 }, // F - mond
+            { freq: 329.63, duration: 0.5 }, // E - in
+            { freq: 329.63, duration: 0.5 }, // E - the
+            { freq: 293.66, duration: 1.0 }, // D - sky
+            
+            // Final verse repeat: "Twinkle twinkle little star"
+            { freq: 261.63, duration: 0.5 }, // C - Twin-
+            { freq: 261.63, duration: 0.5 }, // C - kle
+            { freq: 392.00, duration: 0.5 }, // G - twin-
+            { freq: 392.00, duration: 0.5 }, // G - kle
+            { freq: 440.00, duration: 0.5 }, // A - lit-
+            { freq: 440.00, duration: 0.5 }, // A - tle
+            { freq: 392.00, duration: 1.0 }, // G - star
+            
+            // Final line: "How I wonder what you are"
+            { freq: 349.23, duration: 0.5 }, // F - How
+            { freq: 349.23, duration: 0.5 }, // F - I
+            { freq: 329.63, duration: 0.5 }, // E - won-
+            { freq: 329.63, duration: 0.5 }, // E - der
+            { freq: 293.66, duration: 0.5 }, // D - what
+            { freq: 293.66, duration: 0.5 }, // D - you
+            { freq: 261.63, duration: 1.5 }, // C - are (longer ending)
         ];
 
         let startTime = this.audioContext.currentTime;
@@ -52,8 +98,8 @@ class BackgroundMusicManager {
 
             // Create smooth fade in/out for each note
             noteGain.gain.setValueAtTime(0, startTime);
-            noteGain.gain.linearRampToValueAtTime(0.3, startTime + 0.1);
-            noteGain.gain.linearRampToValueAtTime(0.2, startTime + note.duration - 0.1);
+            noteGain.gain.linearRampToValueAtTime(0.5, startTime + 0.1);
+            noteGain.gain.linearRampToValueAtTime(0.4, startTime + note.duration - 0.1);
             noteGain.gain.linearRampToValueAtTime(0, startTime + note.duration);
 
             oscillator.start(startTime);
@@ -68,7 +114,7 @@ class BackgroundMusicManager {
         this.loopTimeout = setTimeout(() => {
             if (this.enabled && this.isPlaying) {
                 this.stop();
-                setTimeout(() => this.start(), 1000); // 1 second pause between loops
+                setTimeout(() => this.start(), 2000); // 2 second pause between complete songs
             }
         }, (totalDuration + 1) * 1000);
     }

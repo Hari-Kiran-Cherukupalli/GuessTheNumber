@@ -259,6 +259,14 @@ def health_check():
     })
 
 if __name__ == '__main__':
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV') == 'development'
+    
     print("Starting Guess The Number Game Server...")
-    print("Server will be available at: http://localhost:5000")
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    if debug_mode:
+        print("Server will be available at: http://localhost:5000")
+    else:
+        print(f"Server will be available at: http://0.0.0.0:{port}")
+    
+    app.run(debug=debug_mode, host='0.0.0.0', port=port) 

@@ -15,10 +15,113 @@ class GuessTheNumberGame {
         this.apiUrl = 'http://localhost:5000/api';
         this.musicEnabled = true;
         this.backgroundMusic = null;
+        this.musicStarted = false;
+        this.userHasInteracted = false;
         
         this.initializeEventListeners();
         this.initializeSounds();
-        this.initializeBackgroundMusic();
+        
+        // Initialize background music with error handling
+        try {
+            this.initializeBackgroundMusic();
+        } catch (error) {
+            console.log('Background music initialization failed:', error);
+            // Create a dummy background music object if initialization fails
+            this.backgroundMusic = {
+                start: () => console.log('Background music not available'),
+                stop: () => {},
+                toggle: () => { this.musicEnabled = !this.musicEnabled; return this.musicEnabled; },
+                setEnabled: () => {}
+            };
+        }
+        
+        // Try to start music immediately (with fallback for browsers that block autoplay)
+        this.tryAutoplayMusic();
+    }
+
+    tryAutoplayMusic() {
+        // Try to start music immediately
+        setTimeout(async () => {
+            if (this.musicEnabled && this.backgroundMusic) {
+                try {
+                    console.log('Attempting to start background music automatically...');
+                    await this.backgroundMusic.start();
+                    this.musicStarted = true;
+                    this.userHasInteracted = true;
+                    console.log('Background music started successfully!');
+                } catch (error) {
+                    console.log('Autoplay blocked by browser, setting up fallback...');
+                    this.setupUserInteractionFallback();
+                }
+            }
+        }, 1000); // Wait 1 second for page to fully load
+    }
+
+    setupUserInteractionFallback() {
+        // Show a smaller, less intrusive prompt
+        const prompt = document.createElement('div');
+        prompt.id = 'music-prompt';
+        prompt.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 70px;
+            background: rgba(102, 126, 234, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            z-index: 999;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        `;
+        prompt.innerHTML = '🎵 Click for music';
+        prompt.title = 'Click to enable background music';
+        document.body.appendChild(prompt);
+
+        // Start music on any interaction
+        const startMusicOnInteraction = async () => {
+            try {
+                if (!this.musicStarted && this.musicEnabled && this.backgroundMusic) {
+                    await this.backgroundMusic.start();
+                    this.musicStarted = true;
+                    this.userHasInteracted = true;
+                    console.log('Background music started after user interaction');
+                    
+                    // Hide the prompt
+                    prompt.style.opacity = '0';
+                    setTimeout(() => {
+                        if (prompt.parentNode) {
+                            prompt.parentNode.removeChild(prompt);
+                        }
+                    }, 300);
+                    
+                    // Remove listeners
+                    document.removeEventListener('click', startMusicOnInteraction);
+                    document.removeEventListener('keydown', startMusicOnInteraction);
+                    document.removeEventListener('touchstart', startMusicOnInteraction);
+                }
+            } catch (error) {
+                console.log('Failed to start music even after user interaction:', error);
+            }
+        };
+
+        // Listen for any user interaction
+        document.addEventListener('click', startMusicOnInteraction);
+        document.addEventListener('keydown', startMusicOnInteraction);
+        document.addEventListener('touchstart', startMusicOnInteraction);
+        
+        // Auto-hide prompt after 10 seconds
+        setTimeout(() => {
+            if (prompt && prompt.parentNode && !this.musicStarted) {
+                prompt.style.opacity = '0';
+                setTimeout(() => {
+                    if (prompt.parentNode) {
+                        prompt.parentNode.removeChild(prompt);
+                    }
+                }, 300);
+            }
+        }, 10000);
     }
 
     initializeSounds() {
@@ -122,7 +225,17 @@ class GuessTheNumberGame {
 
     initializeBackgroundMusic() {
         // Use the dedicated background music manager
-        this.backgroundMusic = new BackgroundMusicManager();
+        if (typeof BackgroundMusicManager !== 'undefined') {
+            this.backgroundMusic = new BackgroundMusicManager();
+        } else {
+            console.warn('BackgroundMusicManager not found, creating fallback');
+            this.backgroundMusic = {
+                start: () => console.log('Background music not available'),
+                stop: () => {},
+                toggle: () => { this.musicEnabled = !this.musicEnabled; return this.musicEnabled; },
+                setEnabled: () => {}
+            };
+        }
     }
 
         toggleBackgroundMusic() {
@@ -139,7 +252,14 @@ class GuessTheNumberGame {
                 this.currentScreen === 'create-room-screen' || 
                 this.currentScreen === 'join-room-screen' ||
                 this.currentScreen === 'single-player-screen') {
-                setTimeout(() => this.backgroundMusic.start(), 200);
+                this.musicStarted = true;
+                setTimeout(async () => {
+                    try {
+                        await this.backgroundMusic.start();
+                    } catch (error) {
+                        console.log('Could not start music on toggle:', error);
+                    }
+                }, 200);
             }
         } else {
             musicButton.textContent = '🔇';
@@ -243,21 +363,26 @@ class GuessTheNumberGame {
         const errorElement = document.getElementById('name-error');
         const buttons = ['single-player-btn', 'create-room-btn', 'join-room-btn'];
         
+        console.log('Validating player name:', name);
+        
         if (name.trim().length === 0) {
             errorElement.textContent = 'Please enter your name';
             buttons.forEach(id => document.getElementById(id).disabled = true);
+            console.log('Player name validation failed: empty name');
             return false;
         }
         
         if (name.length > 10) {
             errorElement.textContent = 'Name must be 10 characters or less';
             buttons.forEach(id => document.getElementById(id).disabled = true);
+            console.log('Player name validation failed: too long');
             return false;
         }
         
         errorElement.textContent = '';
         buttons.forEach(id => document.getElementById(id).disabled = false);
         this.playerName = name.trim();
+        console.log('Player name validation passed:', this.playerName);
         return true;
     }
 
@@ -317,15 +442,23 @@ class GuessTheNumberGame {
                 screenId === 'create-room-screen' || 
                 screenId === 'join-room-screen' ||
                 screenId === 'single-player-screen') {
-                // Start background music for menu screens only
-                setTimeout(() => {
-                    if (this.musicEnabled) {
-                        this.backgroundMusic.start();
-                    }
-                }, 300);
+                // Start background music for menu screens
+                if (!this.musicStarted) {
+                    this.musicStarted = true;
+                    setTimeout(async () => {
+                        if (this.musicEnabled) {
+                            try {
+                                await this.backgroundMusic.start();
+                            } catch (error) {
+                                console.log('Could not start music on screen change:', error);
+                            }
+                        }
+                    }, 300);
+                }
             } else if (screenId === 'game-screen') {
                 // Immediately stop background music when game starts
                 this.backgroundMusic.stop();
+                this.musicStarted = false;
             }
         }
     }
@@ -336,24 +469,39 @@ class GuessTheNumberGame {
         
         // Start background music on welcome screen if enabled
         if (this.musicEnabled && this.backgroundMusic) {
-            setTimeout(() => {
+            this.musicStarted = true;
+            setTimeout(async () => {
                 if (this.musicEnabled && this.currentScreen === 'welcome-screen') {
-                    this.backgroundMusic.start();
+                    try {
+                        await this.backgroundMusic.start();
+                    } catch (error) {
+                        console.log('Could not start music on welcome screen:', error);
+                    }
                 }
             }, 500);
         }
     }
 
     showSinglePlayer() {
-        if (!this.validatePlayerName(this.playerName)) {
+        console.log('showSinglePlayer called, current playerName:', this.playerName);
+        const nameInput = document.getElementById('player-name');
+        const currentName = nameInput ? nameInput.value : this.playerName;
+        console.log('Name from input field:', currentName);
+        
+        if (!this.validatePlayerName(currentName)) {
+            console.log('Player name validation failed in showSinglePlayer');
             return;
         }
+        console.log('Showing single player screen');
         this.showScreen('single-player-screen');
         this.isSinglePlayer = true;
     }
 
     showCreateRoom() {
-        if (!this.validatePlayerName(this.playerName)) {
+        const nameInput = document.getElementById('player-name');
+        const currentName = nameInput ? nameInput.value : this.playerName;
+        
+        if (!this.validatePlayerName(currentName)) {
             return;
         }
         document.getElementById('secret-number').value = '';
@@ -365,7 +513,10 @@ class GuessTheNumberGame {
     }
 
     showJoinRoom() {
-        if (!this.validatePlayerName(this.playerName)) {
+        const nameInput = document.getElementById('player-name');
+        const currentName = nameInput ? nameInput.value : this.playerName;
+        
+        if (!this.validatePlayerName(currentName)) {
             return;
         }
         document.getElementById('room-code-input').value = '';
@@ -387,6 +538,7 @@ class GuessTheNumberGame {
     }
 
     async startSinglePlayerGame() {
+        console.log('Starting single player game for:', this.playerName);
         try {
             const response = await fetch(`${this.apiUrl}/create-single-player`, {
                 method: 'POST',
